@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gacha Zenless Zone Zero</title>
+<style>
+body { font-family: Arial, sans-serif; margin:0; background: linear-gradient(135deg,#ff9a9e,#fad0c4 50%,#a18cd1); color:#f9fafb;}
+header { background: rgba(31,41,55,0.8); padding:10px; display:flex; justify-content:center; gap:20px; }
+header button { background:none; border:none; color:#f9fafb; font-size:16px; cursor:pointer; padding:6px 12px; }
+header button.active { background:#2563eb; border-radius:6px; }
+section { display:none; padding:20px; text-align:center; backdrop-filter: blur(6px);}
+section.active { display:block; }
+
+#result img { width:200px; height:250px; object-fit:cover; border-radius:10px; margin-bottom:10px; transition: transform 0.5s, box-shadow 0.5s;}
+.glow-grey { box-shadow: 0 0 20px 5px #9ca3af; }
+.glow-purple { box-shadow: 0 0 20px 5px #a855f7; }
+.glow-gold { box-shadow: 0 0 25px 8px gold; }
+
+.btn { background:#2563eb; border:none; padding:12px 24px; font-size:16px; border-radius:8px; cursor:pointer; color:white; margin:5px; transition: background 0.3s; }
+.btn:disabled { background:#6b7280; cursor: not-allowed; }
+.reset { background:#6b7280; }
+
+.grid { display:grid; grid-template-columns: repeat(auto-fill,minmax(120px,1fr)); gap:8px; margin-top:20px; }
+.collect-card, .pool-card { background: rgba(31,41,55,0.8); border-radius:8px; padding:6px; cursor:pointer; }
+.collect-card img, .pool-card img { width:100%; height:140px; object-fit:cover; border-radius:6px; transition:transform 0.3s; }
+.collect-card:hover img { transform:scale(1.05); }
+.star { font-size:12px; color:#facc15; margin-top:2px; display:block; }
+.age { font-size:12px; color:#d1d5db; }
+
+#pityBox {
+  background: rgba(0,0,0,0.6);
+  padding:10px;
+  border-radius:8px;
+  margin:10px auto;
+  max-width:300px;
+  font-size:14px;
+  text-align:center;
+}
+
+#modal, #overlay10x {
+  display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.6);
+}
+#modal .modal-content, #overlay10x .overlay-content {
+  position:relative; margin:50px auto; width:90%; max-width:600px; background:#fff; border-radius:8px; overflow:auto; padding:10px; color:#111;
+}
+#modal img { width:100%; height:auto; display:block; border-radius:6px; }
+#closeModal, #closeOverlay {
+  position:absolute; top:5px; right:5px; background:#f44; border:none; color:white; font-size:18px; cursor:pointer; border-radius:3px; width:30px; height:30px;
+}
+.overlay-grid {
+  display:grid; grid-template-columns: repeat(5,1fr); gap:8px; margin-top:10px;
+}
+.overlay-grid img {
+  width:100%; height:100px; object-fit:cover; border-radius:6px;
+}
+
+.banner {
+  width:100%;
+  max-width:600px;
+  border-radius:12px;
+  margin:0 auto 20px auto;
+  display:block;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <button data-page="home" class="active">Home</button>
+  <button data-page="gacha">Gacha</button>
+  <button data-page="koleksi">Koleksi</button>
+  <button data-page="daftar">Daftar Karakter</button>
+</header>
+
+<section id="home" class="active">
+  <h1>Selamat datang di Gacha Zenless Zone Zero</h1>
+  <p>Pilih menu <b>Gacha</b> untuk memulai spin, lihat hasilmu di <b>Koleksi</b>, dan cek semua isi di <b>Daftar Karakter</b>.</p>
+</section>
+
+<section id="gacha">
+  <h2>Gacha</h2>
+  <div id="pityBox">Pity 5★: 0 / 90 | Pity 4★: 0 / 10</div>
+  <div id="result"><p>Hasil gacha akan muncul di sini</p></div>
+  <button id="spin1Btn" class="btn">Spin 1x</button>
+  <button id="spin10Btn" class="btn">Spin 10x</button>
+  <button id="resetBtn" class="btn reset">Reset Koleksi</button>
+</section>
+
+<section id="koleksi">
+  <h2>Koleksi</h2>
+  <div id="collectionGrid" class="grid"></div>
+</section>
+
+<section id="daftar">
+  <h2>Daftar Isi Gacha</h2>
+  <div id="poolList" class="grid"></div>
+</section>
+
+<div id="modal">
+  <div class="modal-content">
+    <button id="closeModal">X</button>
+    <img id="modal-img" src="" alt="Full View">
+  </div>
+</div>
+
+<div id="overlay10x">
+  <div class="overlay-content">
+    <button id="closeOverlay">X</button>
+    <h3>Hasil Spin 10x</h3>
+    <div id="overlayGrid" class="overlay-grid"></div>
+  </div>
+</div>
+
+<audio id="spinSound" src="spinwheel1.mp3" preload="auto"></audio>
+<audio id="getSound" src="ara.mp3" preload="auto"></audio>
+
+<script>
+const spin1Btn = document.getElementById("spin1Btn");
+const spin10Btn = document.getElementById("spin10Btn");
+const resetBtn = document.getElementById("resetBtn");
+const result = document.getElementById("result");
+const collectionGrid = document.getElementById("collectionGrid");
+const spinSound = document.getElementById("spinSound");
+const getSound = document.getElementById("getSound");
+const modal = document.getElementById("modal");
+const modalImg = document.getElementById("modal-img");
+const closeModal = document.getElementById("closeModal");
+const overlay10x = document.getElementById("overlay10x");
+const overlayGrid = document.getElementById("overlayGrid");
+const closeOverlay = document.getElementById("closeOverlay");
+const pityBox = document.getElementById("pityBox");
+const poolList = document.getElementById("poolList");
+
+let collection = {};
+let spinning = false;
+let pity5 = 0, pity4 = 0;
+
+// Pool karakter Zenless Zone Zero
+const pool = [
+  {name:"Nekomiya Mana", star:3, age:"???", birthday:"July 30th", img:"nekomiya.jpg"},
+  {name:"Nicole Demara", star:4, age:"???", birthday:"November 11th", img:"nicole.jpg"},
+  {name:"Koleda Belobog", star:3, age:"???", birthday:"August 10th", img:"koleda.jpg"},
+  {name:"Grace Howard", star:5, age:"-", birthday:"April 14th", img:"grace.jpg"},
+  {name:"Corin Wickes", star:3, age:"???", birthday:"June 2nd", img:"corin.jpg"},
+  {name:"Burnice White", star:4, age:"???", birthday:"May 23rd", img:"burnice.jpg"},
+  {name:"Caesar King", star:5, age:"???", birthday:"March 16th", img:"caesar.jpg"},
+  {name:"Piper Wheel", star:3, age:"???", birthday:"October 21st", img:"piper.jpg"},
+  {name:"Astra Yao", star:5, age:"???", birthday:"January 31st", img:"astra.jpg"},
+  {name:"Alice", star:4, age:"???", birthday:"August 30th", img:"alice.jpg"}
+];
+
+document.querySelectorAll("header button").forEach(btn => btn.addEventListener("click", ()=>{
+  document.querySelectorAll("header button").forEach(b=>b.classList.remove("active"));
+  document.querySelectorAll("section").forEach(s=>s.classList.remove("active"));
+  btn.classList.add("active");
+  document.getElementById(btn.dataset.page).classList.add("active");
+}));
+
+function updatePityBox(){
+  pityBox.textContent = `Pity 5★: ${pity5} / 90 | Pity 4★: ${pity4} / 10`;
+}
+
+function pickGacha(){
+  pity5++; pity4++;
+
+  // Hard pity
+  if(pity5>=90){ 
+    pity5=0; 
+    let candidates=pool.filter(p=>p.star===5);
+    return candidates[Math.floor(Math.random()*candidates.length)];
+  }
+  if(pity4>=10){ 
+    pity4=0; 
+    let candidates=pool.filter(p=>p.star===4);
+    return candidates[Math.floor(Math.random()*candidates.length)];
+  }
+
+  const rand=Math.random()*100;
+  let candidates;
+  if(rand<1){ pity5=0; candidates=pool.filter(p=>p.star===5); }
+  else if(rand<8){ pity4=0; candidates=pool.filter(p=>p.star===4); }
+  else { candidates=pool.filter(p=>p.star===3); }
+  return candidates[Math.floor(Math.random()*candidates.length)];
+}
+
+function updateCollection(){
+  collectionGrid.innerHTML="";
+  Object.values(collection).forEach(item=>{
+    const div=document.createElement("div");
+    div.className="collect-card";
+    div.innerHTML=`<img src="${item.img}" alt="${item.name}" data-large="${item.img}">
+                     <div><strong>${item.name}</strong></div>
+                     <div class="star">${item.star}★ (${item.count}x)</div>
+                     <div class="age">Umur: ${item.age}</div>
+                     <div class="age">Ulang Tahun: ${item.birthday}</div>`;
+    collectionGrid.appendChild(div);
+  });
+}
+
+function updatePoolList(){
+  poolList.innerHTML="";
+  pool.forEach(ch=>{
+    let glowClass=ch.star>=5?'glow-gold':ch.star>=4?'glow-purple':'glow-grey';
+    const div=document.createElement("div");
+    div.className="pool-card";
+    div.innerHTML=`<img src="${ch.img}" class="${glowClass}">
+                   <div><strong>${ch.name}</strong></div>
+                   <div class="star">${ch.star}★</div>
+                   <div class="age">Umur: ${ch.age}</div>
+                   <div class="age">Ulang Tahun: ${ch.birthday}</div>`;
+    poolList.appendChild(div);
+  });
+}
+
+async function spinGacha1x(){
+  if(spinning) return;
+  spinning=true;
+  spin1Btn.disabled=true; 
+  spin10Btn.disabled=true;
+
+  result.innerHTML="<p>Spinning...</p>";
+  spinSound.currentTime=0; spinSound.play();
+
+  let temp;
+  const maxSteps=20;
+  const totalTime=3000;
+  let steps=0;
+  const startTime=Date.now();
+
+  while(steps<maxSteps){
+    temp=pool[Math.floor(Math.random()*pool.length)];
+    result.innerHTML=`<img src="${temp.img}" alt="${temp.name}">
+                      <p><strong>${temp.name}</strong> — ${temp.star}★</p>`;
+    steps++;
+    const elapsed=Date.now()-startTime;
+    const remaining=totalTime-elapsed;
+    const intervalTime=Math.max(20, remaining/(maxSteps-steps));
+    await new Promise(r=>setTimeout(r,intervalTime));
+  }
+
+  const chosen=pickGacha();
+  let glowClass=chosen.star>=5?'glow-gold':chosen.star>=4?'glow-purple':'glow-grey';
+  result.innerHTML=`<img src="${chosen.img}" class="${glowClass}" alt="${chosen.name}">
+                    <p><strong>${chosen.name}</strong> — ${chosen.star}★</p>
+                    <p>Umur: ${chosen.age}</p>
+                    <p>Ulang Tahun: ${chosen.birthday}</p>`;
+
+  if(collection[chosen.name]) collection[chosen.name].count++;
+  else collection[chosen.name]={...chosen,count:1};
+  updateCollection();
+  updatePityBox();
+
+  spinSound.pause(); spinSound.currentTime=0;
+  getSound.currentTime=0; getSound.play().catch(e=>console.log(e));
+
+  spinning=false;
+  spin1Btn.disabled=false; 
+  spin10Btn.disabled=false;
+}
+
+async function spinGacha10x(){
+  if(spinning) return;
+  spinning=true;
+  spin1Btn.disabled=true; 
+  spin10Btn.disabled=true;
+
+  overlayGrid.innerHTML="";
+  overlay10x.style.display="block";
+  spinSound.currentTime=0; spinSound.play();
+
+  for(let i=0;i<10;i++){
+    const chosen=pickGacha();
+    let glowClass=chosen.star>=5?'glow-gold':chosen.star>=4?'glow-purple':'glow-grey';
+    const card=document.createElement("div");
+    card.innerHTML=`<img src="${chosen.img}" class="${glowClass}" alt="${chosen.name}">
+                    <div><strong>${chosen.name}</strong> — ${chosen.star}★</div>`;
+    overlayGrid.appendChild(card);
+    if(collection[chosen.name]) collection[chosen.name].count++;
+    else collection[chosen.name]={...chosen,count:1};
+    await new Promise(r=>setTimeout(r,120));
+  }
+  updateCollection();
+  updatePityBox();
+
+  spinSound.pause(); spinSound.currentTime=0;
+  getSound.currentTime=0; getSound.play().catch(e=>console.log(e));
+
+  spinning=false;
+  spin1Btn.disabled=false; 
+  spin10Btn.disabled=false;
+}
+
+spin1Btn.addEventListener("click",spinGacha1x);
+spin10Btn.addEventListener("click",spinGacha10x);
+resetBtn.addEventListener("click",()=>{
+  result.innerHTML="<p>Hasil gacha akan muncul di sini</p>";
+  collection={}; pity5=0; pity4=0; updateCollection(); updatePityBox();
+});
+closeOverlay.addEventListener("click",()=>{overlay10x.style.display="none";});
+overlay10x.addEventListener("click",e=>{if(e.target===overlay10x) overlay10x.style.display="none";});
+
+document.addEventListener("click",e=>{
+  if(e.target.tagName==='IMG' && e.target.dataset.large){
+    modalImg.src=e.target.dataset.large;
+    modal.style.display="block";
+  }
+});
+closeModal.addEventListener("click",()=>{modal.style.display="none";});
+modal.addEventListener("click",e=>{if(e.target===modal) modal.style.display="none";});
+
+updatePityBox();
+updatePoolList();
+</script>
+</body>
+  </html>
